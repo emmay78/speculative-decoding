@@ -1,0 +1,8 @@
+{
+  "model": "facebook/opt-6.7b",
+  "draft_model": "facebook/opt-125m",
+  "num_speculative_tokens": 5,
+  "subset": null,
+  "temperature": 0.8,
+  "top_p": 0.95
+}
