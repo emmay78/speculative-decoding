@@ -50,7 +50,7 @@ def measure_metrics(prompts, outputs, start_time, end_time, config, output_dir):
                     "subset",
                     "temperature",
                     "top_p",
-                    # "batch_size",
+                    "batch_size",
                     "prompt_length",
                     "total_time",
                     "avg_time_per_prompt",
@@ -66,7 +66,7 @@ def measure_metrics(prompts, outputs, start_time, end_time, config, output_dir):
                 config["subset"],
                 config["temperature"],
                 config["top_p"],
-                # config["batch_size"],
+                config["batch_size"],
                 config["prompt_length"],
                 total_time,
                 avg_time_per_prompt,
@@ -87,7 +87,7 @@ def main(
     temperature=0.8,
     top_p=0.95,
     output_dir="benchmark_output",
-    # batch_size=1,
+    batch_size=None,
     prompt_length=100,
 ):
     random.seed(2241)
@@ -124,18 +124,12 @@ def main(
             "model": draft_model,
             "num_speculative_tokens": num_speculative_tokens,
         },
+        max_num_seqs=batch_size,
         download_dir=CACHE_DIR,
     )
 
     start_time = time.time()
-    outputs = []
-    # for i in range(0, len(prompts), batch_size):
-    #     batch_prompts = prompts[i : i + batch_size]
-    #     batch_outputs = llm.generate(batch_prompts, sampling_params)
-    #     outputs.extend(batch_outputs)
-    for prompt in prompts:
-        output = llm.generate([prompt], sampling_params)
-        outputs.extend(output)
+    outputs = llm.generate(prompts, sampling_params)
     end_time = time.time()
 
     config = {
@@ -145,7 +139,7 @@ def main(
         "subset": subset,
         "temperature": temperature,
         "top_p": top_p,
-        # "batch_size": batch_size,
+        "batch_size": batch_size,
         "prompt_length": prompt_length,
     }
 
@@ -161,9 +155,9 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top_p", type=float, default=0.95)
     parser.add_argument("--output_dir", type=str, default="benchmark_output")
-    # parser.add_argument(
-    #     "--batch_size", type=int, default=1, help="Batch size for prompt generation"
-    # )
+    parser.add_argument(
+        "--batch_size", type=int, default=None, help="Batch size for prompt generation"
+    )
     parser.add_argument(
         "--prompt_length", type=int, default=100, help="Max prompt length (in tokens)"
     )
@@ -177,6 +171,6 @@ if __name__ == "__main__":
         temperature=args.temperature,
         top_p=args.top_p,
         output_dir=args.output_dir,
-        # batch_size=args.batch_size,
+        batch_size=args.batch_size,
         prompt_length=args.prompt_length,
     )

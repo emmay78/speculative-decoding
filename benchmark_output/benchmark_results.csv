@@ -1,2 +1,0 @@
-model,draft_model,num_speculative_tokens,subset,temperature,top_p,total_time,avg_time_per_prompt,total_tokens,tokens_per_second
-facebook/opt-6.7b,facebook/opt-125m,5,,0.8,0.95,467.4222218990326,0.008988543169474878,586541,1254.8419234691373

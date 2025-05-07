@@ -1,74 +1,45 @@
 #!/bin/bash
 
-# Estimated VRAM usage per model in GB (approximate; adjust as needed)
-declare -A model_mem_map=(
-    ["facebook/opt-125m"]=2
-    ["facebook/opt-350m"]=3
-    ["facebook/opt-1.3b"]=6
-    ["facebook/opt-2.7b"]=10
-    ["facebook/opt-6.7b"]=20
-    ["facebook/opt-13b"]=35
+export CUDA_VISIBLE_DEVICES=0
+
+# Define model pairs (draft_model main_model)
+declare -a model_pairs=(
+  "gpt2-medium gpt2-large"
+  "distilbert-base-uncased bert-base-uncased"
+  "facebook/opt-125m facebook/opt-6.7b"
+  "facebook/opt-1.3b facebook/opt-6.7b"
 )
 
-# Models to consider
-draft_models=("facebook/opt-125m" "facebook/opt-350m" "facebook/opt-1.3b")
-main_models=("facebook/opt-2.7b" "facebook/opt-6.7b" "facebook/opt-13b")
-
 # Other search params
-# batch_sizes=(1 4 8 16)  # Commented out batch sizes
+batch_sizes=(64 128 256)
 num_spec_tokens=(1 4 8)
-prompt_lengths=(64 128 256)
-subset=100  # you can increase for more realistic benchmarking
+prompt_lengths=(128 256 512)
 
 # Output base dir
-OUTPUT_DIR="benchmark_grid_results"
+OUTPUT_DIR="benchmark_results_v2"
 mkdir -p "$OUTPUT_DIR"
 
-# Incompatible with FlashAttention due to head size issues
-incompatible_flash_models=("facebook/opt-125m" "facebook/opt-350m" "facebook/opt-2.7b")
+# Begin search over model pairs
+for pair in "${model_pairs[@]}"; do
+  draft_model=$(echo $pair | awk '{print $1}')
+  main_model=$(echo $pair | awk '{print $2}')
 
-# Begin grid search
-for draft in "${draft_models[@]}"; do
-    for main in "${main_models[@]}"; do
+  for batch in "${batch_sizes[@]}"; do
+    for num_spec in "${num_spec_tokens[@]}"; do
+      for prompt_len in "${prompt_lengths[@]}"; do
 
-        # Skip models incompatible with FlashAttention
-        if [[ " ${incompatible_flash_models[@]} " =~ " $draft " ]]; then
-            echo "Skipping incompatible draft model: $draft"
-            continue
-        fi
+        echo "Running: Draft=$draft_model | Main=$main_model | Batch=$batch | Spec=$num_spec | PromptLen=$prompt_len"
 
-        if [[ " ${incompatible_flash_models[@]} " =~ " $main " ]]; then
-            echo "Skipping incompatible main model: $main"
-            continue
-        fi
+        python speculative_decode.py \
+          --model "$main_model" \
+          --draft_model "$draft_model" \
+          --num_speculative_tokens "$num_spec" \
+          --batch_size "$batch" \
+          --prompt_length "$prompt_len" \
+          --output_dir "$OUTPUT_DIR"
 
-        # Estimate memory usage
-        draft_mem=${model_mem_map[$draft]}
-        main_mem=${model_mem_map[$main]}
-        total_mem=$((draft_mem + main_mem))
-
-        if (( total_mem > 40 )); then
-            echo "Skipping combination $draft + $main (estimated VRAM: ${total_mem}GB > 40GB)"
-            continue
-        fi
-
-        # for batch in "${batch_sizes[@]}"; do  # Commented out batch loop
-            for num_spec in "${num_spec_tokens[@]}"; do
-                for prompt_len in "${prompt_lengths[@]}"; do
-
-                    echo "Running: Draft=$draft | Main=$main | Spec=$num_spec | PromptLen=$prompt_len"  # Removed Batch from echo
-
-                    python speculative_decode.py \
-                        --model "$main" \
-                        --draft_model "$draft" \
-                        --num_speculative_tokens "$num_spec" \
-                        --prompt_length "$prompt_len" \
-                        --subset "$subset" \
-                        --output_dir "$OUTPUT_DIR"
-
-                done
-            done
-        # done  # Commented out batch loop
-
+      done
     done
+  done
+
 done
